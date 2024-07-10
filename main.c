@@ -7,6 +7,7 @@ typedef struct {
   float r;
   Vector3 origin;
   Color color;
+  int specular;
 } sphere_t;
 
 const float ambient_light = 0.2;
@@ -23,7 +24,7 @@ const int ch = 1000;
 Vector3 canvas_to_viewport(int x, int y);
 Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max);
 void intersect_sphere(Vector3, Vector3, const sphere_t *, float *, float *);
-float compute_lighting(Vector3 P, Vector3 N);
+float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s);
 
 sphere_t spheres[3];
 light_t lights[2];
@@ -33,12 +34,18 @@ int main(void) {
   SetTargetFPS(60);
   Vector3 O = {.x = 0, .y = 0, .z = 0};
 
-  spheres[0] =
-      (sphere_t){.r = 1, .origin = {.x = 0, .y = -1, .z = 3}, .color = RED};
-  spheres[1] = (sphere_t){
-      .r = 0.5, .origin = {.x = -1, .y = 0.5, .z = 5}, .color = BLUE};
-  spheres[2] = (sphere_t){
-      .r = 3, .origin = {.x = 1, .y = 00.5, .z = 200}, .color = GREEN};
+  spheres[0] = (sphere_t){.r = 1,
+                          .origin = {.x = 0, .y = -1, .z = 3},
+                          .color = RED,
+                          .specular = 30};
+  spheres[1] = (sphere_t){.r = 0.5,
+                          .origin = {.x = -1, .y = 0.5, .z = 5},
+                          .color = BLUE,
+                          .specular = 10};
+  spheres[2] = (sphere_t){.r = 3,
+                          .origin = {.x = 1, .y = 00.5, .z = 200},
+                          .color = GREEN,
+                          .specular = 30};
   lights[0] = (light_t){.type = POINT, .intensity = 0.6, .position = {2, 1, 0}};
   lights[1] =
       (light_t){.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}};
@@ -85,16 +92,17 @@ Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max) {
   Vector3 P = Vector3Add(O, Vector3Scale(D, closest_t));
   Vector3 ps = Vector3Subtract(P, closest_sphere.origin);
   Vector3 N = Vector3Normalize(ps);
-  float i = compute_lighting(P, N);
+  const Vector3 V = Vector3Scale(D, -1.0f);
+  float i = compute_lighting(P, N, V, &closest_sphere);
   Color ret = closest_sphere.color;
-  ret.r*=i;
-  ret.g*=i;
-  ret.b*=i;
+  ret.r =Clamp(ret.r *  i,0,255);
+  ret.g =Clamp(ret.g *  i,0,255);
+  ret.b =Clamp(ret.b *  i,0,255);
   return ret;
 }
 
-void intersect_sphere(Vector3 O, Vector3 D, const sphere_t *sphere, float *out_t1,
-                      float *out_t2) {
+void intersect_sphere(Vector3 O, Vector3 D, const sphere_t *sphere,
+                      float *out_t1, float *out_t2) {
   float r = sphere->r;
   Vector3 CO = Vector3Subtract(O, sphere->origin);
   float a = Vector3DotProduct(D, D);
@@ -110,7 +118,7 @@ void intersect_sphere(Vector3 O, Vector3 D, const sphere_t *sphere, float *out_t
   *out_t2 = (-b - sqrtf(delta)) / (2 * a);
 }
 
-float compute_lighting(Vector3 P, Vector3 N) {
+float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s) {
   float i = 0.0f;
   i += ambient_light;
   Vector3 L;
@@ -124,6 +132,14 @@ float compute_lighting(Vector3 P, Vector3 N) {
     float n_dot_l = Vector3DotProduct(N, L);
     if (n_dot_l > 0) {
       i += light->intensity * n_dot_l / (Vector3Length(N) * Vector3Length(L));
+    }
+    if (s->specular != -1) {
+      Vector3 R = Vector3Subtract(
+          Vector3Scale(Vector3Scale(N, 2), Vector3DotProduct(N, L)), L);
+      float r_dot_v = Vector3DotProduct(R, V);
+      if (r_dot_v > 0) {
+        i += light->intensity * pow(r_dot_v / Vector3Length(R), s->specular);
+      }
     }
   }
   return i;
