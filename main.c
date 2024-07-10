@@ -26,7 +26,7 @@ Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max);
 void intersect_sphere(Vector3, Vector3, const sphere_t *, float *, float *);
 float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s);
 
-sphere_t spheres[3];
+sphere_t spheres[4];
 light_t lights[2];
 
 int main(void) {
@@ -37,15 +37,19 @@ int main(void) {
   spheres[0] = (sphere_t){.r = 1,
                           .origin = {.x = 0, .y = -1, .z = 3},
                           .color = RED,
-                          .specular = 30};
-  spheres[1] = (sphere_t){.r = 0.5,
-                          .origin = {.x = -1, .y = 0.5, .z = 5},
+                          .specular = 100};
+  spheres[1] = (sphere_t){.r = 1,
+                          .origin = {.x = 2, .y = 0, .z = 4},
                           .color = BLUE,
-                          .specular = 10};
-  spheres[2] = (sphere_t){.r = 3,
-                          .origin = {.x = 1, .y = 00.5, .z = 200},
+                          .specular = 100};
+  spheres[2] = (sphere_t){.r = 1,
+                          .origin = {.x = -2, .y = 0, .z = 4},
                           .color = GREEN,
-                          .specular = 30};
+                          .specular = 500};
+  spheres[3] = (sphere_t){.r = 5000,
+                          .origin = {.x = 0, .y = -5001, .z = 0},
+                          .color = YELLOW,
+                          .specular = -1};
   lights[0] = (light_t){.type = POINT, .intensity = 0.6, .position = {2, 1, 0}};
   lights[1] =
       (light_t){.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}};
@@ -74,7 +78,7 @@ Vector3 canvas_to_viewport(int x, int y) {
 Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max) {
   float closest_t = INFINITY;
   sphere_t closest_sphere = {0};
-  for (size_t i = 0; i < 3; i++) {
+  for (size_t i = 0; i < 4; i++) {
     float t1, t2;
     intersect_sphere(O, D, &spheres[i], &t1, &t2);
     if (t_min < t1 && t1 < t_max && t1 < closest_t) {
@@ -134,11 +138,13 @@ float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s) {
       i += light->intensity * n_dot_l / (Vector3Length(N) * Vector3Length(L));
     }
     if (s->specular != -1) {
-      Vector3 R = Vector3Subtract(
-          Vector3Scale(Vector3Scale(N, 2), Vector3DotProduct(N, L)), L);
+      float n_dot_l = Vector3DotProduct(N,L);
+      Vector3 R = Vector3Scale(N,n_dot_l*2);
+      R = Vector3Subtract(R,L);
       float r_dot_v = Vector3DotProduct(R, V);
       if (r_dot_v > 0) {
-        i += light->intensity * pow(r_dot_v / Vector3Length(R), s->specular);
+        i += light->intensity * pow(r_dot_v / (Vector3Length(R) * Vector3Length(V))
+          , s->specular);
       }
     }
   }
