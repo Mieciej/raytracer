@@ -23,6 +23,7 @@ const int ch = 1000;
 
 Vector3 canvas_to_viewport(int x, int y);
 Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max);
+bool trace_shadow_ray(Vector3 P, Vector3 L, float t_min, float t_max);
 void intersect_sphere(Vector3, Vector3, const sphere_t *, float *, float *);
 float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s);
 
@@ -99,10 +100,21 @@ Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max) {
   const Vector3 V = Vector3Scale(D, -1.0f);
   float i = compute_lighting(P, N, V, &closest_sphere);
   Color ret = closest_sphere.color;
-  ret.r =Clamp(ret.r *  i,0,255);
-  ret.g =Clamp(ret.g *  i,0,255);
-  ret.b =Clamp(ret.b *  i,0,255);
+  ret.r = Clamp(ret.r * i, 0, 255);
+  ret.g = Clamp(ret.g * i, 0, 255);
+  ret.b = Clamp(ret.b * i, 0, 255);
   return ret;
+}
+bool trace_shadow_ray(Vector3 P, Vector3 L, float t_min, float t_max) {
+
+  for (size_t i = 0; i < 4; i++) {
+    float t1, t2;
+    intersect_sphere(P, L, &spheres[i], &t1, &t2);
+    if ((t_min < t1 && t1 < t_max) || (t_min < t2 && t2 < t_max && t2)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void intersect_sphere(Vector3 O, Vector3 D, const sphere_t *sphere,
@@ -133,18 +145,21 @@ float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s) {
     } else {
       L = light->position;
     }
+    if (trace_shadow_ray(P, L, 0.001, INFINITY)) {
+      continue;
+    }
     float n_dot_l = Vector3DotProduct(N, L);
     if (n_dot_l > 0) {
       i += light->intensity * n_dot_l / (Vector3Length(N) * Vector3Length(L));
     }
     if (s->specular != -1) {
-      float n_dot_l = Vector3DotProduct(N,L);
-      Vector3 R = Vector3Scale(N,n_dot_l*2);
-      R = Vector3Subtract(R,L);
+      float n_dot_l2 = Vector3DotProduct(N, L);
+      Vector3 R = Vector3Scale(N, n_dot_l2 * 2);
+      R = Vector3Subtract(R, L);
       float r_dot_v = Vector3DotProduct(R, V);
       if (r_dot_v > 0) {
-        i += light->intensity * pow(r_dot_v / (Vector3Length(R) * Vector3Length(V))
-          , s->specular);
+        i += light->intensity *
+             pow(r_dot_v / (Vector3Length(R) * Vector3Length(V)), s->specular);
       }
     }
   }
