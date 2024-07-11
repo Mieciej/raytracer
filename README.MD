@@ -12,6 +12,5 @@ make
 
 ## Screenshots
 
-<p align="center" style="padding: none; margin:none;">
-    <img src="./scrn_01.png" height="800">
-</p>
+![static screenshot](./scrn_01.png)
+![movement showcase](./scrn_02.gif)
