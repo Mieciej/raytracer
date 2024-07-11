@@ -13,5 +13,5 @@ make
 ## Screenshots
 
 <p align="center" style="padding: none; margin:none;">
-    <img src="./scrn_01.png.png" height="200">
+    <img src="./scrn_01.png" height="200">
 </p>
