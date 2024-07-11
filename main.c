@@ -41,12 +41,12 @@ int main(void) {
                           .origin = {.x = 0, .y = -1, .z = 3},
                           .color = RED,
                           .specular = 500,
-                          .reflective = 0.2};
+                          .reflective = 0};
   spheres[1] = (sphere_t){.r = 1,
                           .origin = {.x = 2, .y = 0, .z = 4},
-                          .color = BLUE,
-                          .specular = 500,
-                          .reflective = 0.3};
+                          .color = GRAY,
+                          .specular = 1000,
+                          .reflective = 0.75};
   spheres[2] = (sphere_t){.r = 1,
                           .origin = {.x = -2, .y = 0, .z = 4},
                           .color = GREEN,
@@ -56,14 +56,14 @@ int main(void) {
                           .origin = {.x = 0, .y = -5001, .z = 0},
                           .color = YELLOW,
                           .specular = 1000,
-                          .reflective = 0.5};
+                          .reflective = 0};
   lights[0] = (light_t){.type = POINT, .intensity = 0.6, .position = {2, 1, 0}};
   lights[1] =
       (light_t){.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}};
 
   while (!WindowShouldClose()) {
     BeginDrawing();
-    ClearBackground(BLACK);
+    ClearBackground(LIGHTGRAY);
     for (int x = -cw / 2; x < cw / 2; x++) {
       for (int y = -ch / 2; y < ch / 2; y++) {
         Vector3 D = canvas_to_viewport(x, y);
@@ -98,7 +98,7 @@ Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max, size_t rec) {
     }
   }
   if (closest_sphere.r == 0) {
-    return BLACK;
+    return LIGHTGRAY;
   }
   Vector3 P = Vector3Add(O, Vector3Scale(D, closest_t));
   Vector3 ps = Vector3Subtract(P, closest_sphere.origin);
