@@ -19,8 +19,8 @@ typedef struct {
   Vector3 position;
 } light_t;
 
-const int cw = 1000;
-const int ch = 1000;
+const int cw = 400;
+const int ch = 400;
 
 Vector3 canvas_to_viewport(int x, int y);
 Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max, size_t rec);
@@ -33,9 +33,7 @@ sphere_t spheres[4];
 light_t lights[2];
 
 int main(void) {
-  InitWindow(cw, ch, "raylib [core] example - basic window");
-  SetTargetFPS(60);
-  Vector3 O = {.x = 0, .y = 0, .z = 0};
+  InitWindow(cw, ch, "raytracer");
 
   spheres[0] = (sphere_t){.r = 1,
                           .origin = {.x = 0, .y = -1, .z = 3},
@@ -61,13 +59,50 @@ int main(void) {
   lights[1] =
       (light_t){.type = DIRECTIONAL, .intensity = 0.2, .position = {1, 4, 4}};
 
+  Vector3 camera_pos = {.x = 0, .y = 0, .y = 0};
+  float speed = 0.1;
+  float rotation_speed = 0.05;
+  Matrix rot = MatrixIdentity();
   while (!WindowShouldClose()) {
+    Vector3 movement_vector = {0};
+    if (IsKeyDown(KEY_Q)) {
+      rot = MatrixMultiply(rot, MatrixRotateY(-rotation_speed));
+    }
+    if (IsKeyDown(KEY_E)) {
+      rot = MatrixMultiply(rot, MatrixRotateY(rotation_speed));
+    }
+    if (IsKeyDown(KEY_J)) {
+      rot = MatrixMultiply(rot, MatrixRotateX(rotation_speed));
+    }
+    if (IsKeyDown(KEY_K)) {
+      rot = MatrixMultiply(rot, MatrixRotateX(-rotation_speed));
+    }
+    if (IsKeyDown(KEY_SPACE)) {
+      movement_vector.y +=speed;
+    }
+    if(IsKeyDown(KEY_LEFT_SHIFT)) {
+      movement_vector.y -=speed;
+    }
+    if (IsKeyDown(KEY_W)) {
+      movement_vector.z += speed;
+    }
+    if (IsKeyDown(KEY_A)) {
+      movement_vector.x -= speed;
+    }
+    if (IsKeyDown(KEY_D)) {
+      movement_vector.x += speed;
+    }
+    if (IsKeyDown(KEY_S)) {
+      movement_vector.z -= speed;
+    }
+    movement_vector = Vector3Transform(movement_vector,rot);
+    camera_pos = Vector3Add(movement_vector,camera_pos);
     BeginDrawing();
     ClearBackground(LIGHTGRAY);
     for (int x = -cw / 2; x < cw / 2; x++) {
       for (int y = -ch / 2; y < ch / 2; y++) {
-        Vector3 D = canvas_to_viewport(x, y);
-        Color color = trace_ray(O, D, 1, INFINITY, 3);
+        Vector3 D = Vector3Transform(canvas_to_viewport(x, y),rot);
+        Color color = trace_ray(camera_pos, D, 1, INFINITY, 3);
         DrawPixel(x + cw / 2, -y + ch / 2, color);
       }
     }
