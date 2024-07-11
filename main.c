@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include <math.h>
+#include <pthread.h>
 #include <raymath.h>
 #include <stdio.h>
 
@@ -11,7 +12,6 @@ typedef struct {
   float reflective;
 } sphere_t;
 
-const float ambient_light = 0.2;
 typedef enum { POINT, DIRECTIONAL } light_type_t;
 typedef struct {
   light_type_t type;
@@ -19,8 +19,17 @@ typedef struct {
   Vector3 position;
 } light_t;
 
-const int cw = 400;
-const int ch = 400;
+#define N_THREADS 16
+const int cw = 600;
+const int ch = 600;
+
+typedef struct {
+  int pixel_start;
+  int pixel_end;
+  Color *pixels;
+  Vector3 camera_pos;
+  Matrix camera_rot;
+} thread_ray_data_t;
 
 Vector3 canvas_to_viewport(int x, int y);
 Color trace_ray(Vector3 O, Vector3 D, float t_min, float t_max, size_t rec);
@@ -28,7 +37,8 @@ bool trace_shadow_ray(Vector3 P, Vector3 L, float t_min, float t_max);
 void intersect_sphere(Vector3, Vector3, const sphere_t *, float *, float *);
 float compute_lighting(Vector3 P, Vector3 N, Vector3 V, sphere_t *s);
 Vector3 reflect_ray(Vector3 R, Vector3 N);
-
+void *color_pixels(void *data);
+const float ambient_light = 0.2;
 sphere_t spheres[4];
 light_t lights[2];
 
@@ -63,6 +73,14 @@ int main(void) {
   float speed = 0.1;
   float rotation_speed = 0.05;
   Matrix rot = MatrixIdentity();
+  Color pixels[cw * ch];
+  pthread_t threads[N_THREADS];
+  thread_ray_data_t thread_ray_data[N_THREADS];
+  for (int i = 0; i < N_THREADS; ++i) {
+    thread_ray_data[i].pixel_start = i * cw / N_THREADS - cw / 2;
+    thread_ray_data[i].pixel_end = (i + 1) * cw / N_THREADS - cw / 2;
+    thread_ray_data[i].pixels = pixels;
+  }
   while (!WindowShouldClose()) {
     Vector3 movement_vector = {0};
     if (IsKeyDown(KEY_Q)) {
@@ -71,17 +89,11 @@ int main(void) {
     if (IsKeyDown(KEY_E)) {
       rot = MatrixMultiply(rot, MatrixRotateY(rotation_speed));
     }
-    if (IsKeyDown(KEY_J)) {
-      rot = MatrixMultiply(rot, MatrixRotateX(rotation_speed));
-    }
-    if (IsKeyDown(KEY_K)) {
-      rot = MatrixMultiply(rot, MatrixRotateX(-rotation_speed));
-    }
     if (IsKeyDown(KEY_SPACE)) {
-      movement_vector.y +=speed;
+      movement_vector.y += speed;
     }
-    if(IsKeyDown(KEY_LEFT_SHIFT)) {
-      movement_vector.y -=speed;
+    if (IsKeyDown(KEY_LEFT_SHIFT)) {
+      movement_vector.y -= speed;
     }
     if (IsKeyDown(KEY_W)) {
       movement_vector.z += speed;
@@ -95,15 +107,21 @@ int main(void) {
     if (IsKeyDown(KEY_S)) {
       movement_vector.z -= speed;
     }
-    movement_vector = Vector3Transform(movement_vector,rot);
-    camera_pos = Vector3Add(movement_vector,camera_pos);
+    movement_vector = Vector3Transform(movement_vector, rot);
+    camera_pos = Vector3Add(movement_vector, camera_pos);
+    for (int i = 0; i < N_THREADS; ++i) {
+      thread_ray_data[i].camera_pos = camera_pos;
+      thread_ray_data[i].camera_rot = rot;
+      pthread_create(&threads[i], NULL, color_pixels, &thread_ray_data[i]);
+    }
+    for (int i = 0; i < N_THREADS; ++i) {
+      pthread_join(threads[i], NULL);
+    }
     BeginDrawing();
     ClearBackground(LIGHTGRAY);
-    for (int x = -cw / 2; x < cw / 2; x++) {
-      for (int y = -ch / 2; y < ch / 2; y++) {
-        Vector3 D = Vector3Transform(canvas_to_viewport(x, y),rot);
-        Color color = trace_ray(camera_pos, D, 1, INFINITY, 3);
-        DrawPixel(x + cw / 2, -y + ch / 2, color);
+    for (int x = 0; x < cw; x++) {
+      for (int y = 0; y < ch; y++) {
+        DrawPixel(x, y, pixels[x * ch + y]);
       }
     }
     EndDrawing();
@@ -220,4 +238,18 @@ Vector3 reflect_ray(Vector3 R, Vector3 N) {
   Vector3 ret = Vector3Scale(N, 2 * n_dot_r);
   ret = Vector3Subtract(ret, R);
   return ret;
+}
+void *color_pixels(void *data) {
+  thread_ray_data_t *pixel_data = (thread_ray_data_t *)data;
+  for (int x = pixel_data->pixel_start; x <pixel_data->pixel_end; x++) {
+    for (int y = -ch / 2; y <= ch / 2; y++) {
+      Vector3 D =
+          Vector3Transform(canvas_to_viewport(x, y), pixel_data->camera_rot);
+      int canvas_x = x + cw / 2;
+      int canvas_y = -y + ch / 2;
+      pixel_data->pixels[canvas_x * ch + canvas_y] =
+          trace_ray(pixel_data->camera_pos, D, 1, INFINITY, 3);
+    }
+  }
+  return NULL;
 }
